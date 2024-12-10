@@ -89,12 +89,6 @@ Example queries:
 - "What are the upcoming holidays I should be aware of?"
 - "Show me my child's current grades"
 
-## Development
-
-- `npm run dev` - Run in development mode with hot reloading
-- `npm run build` - Build the project
-- `npm start` - Run the built version
-
 ## Project Structure
 
 - `src/`
@@ -105,3 +99,4 @@ Example queries:
   - `tools.ts` - Tool definitions
   - `types.ts` - TypeScript types
   - `data.ts` - Sample data
+  - `util.ts` - Helpers
