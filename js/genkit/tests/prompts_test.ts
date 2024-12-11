@@ -160,6 +160,40 @@ describe('definePrompt - dotprompt', () => {
       assert.deepStrictEqual(foo, { bar: 'baz' });
     });
 
+    it('defaults to json format', async () => {
+      const Foo = z.object({
+        bar: z.string(),
+      });
+      const model = defineStaticResponseModel(ai, {
+        role: 'model',
+        content: [
+          {
+            text: '```json\n{bar: "baz"}\n```',
+          },
+        ],
+      });
+      const hi = ai.definePrompt(
+        {
+          name: 'hi',
+          model,
+          input: {
+            schema: z.object({
+              name: z.string(),
+            }),
+          },
+          output: {
+            // no format specified
+            schema: Foo,
+          },
+        },
+        'hi {{ name }}'
+      );
+
+      const response = await hi({ name: 'Genkit' });
+      const foo: z.infer<typeof Foo> = response.output;
+      assert.deepStrictEqual(foo, { bar: 'baz' });
+    });
+
     it('streams dotprompt with default model', async () => {
       const hi = ai.definePrompt(
         {
@@ -236,7 +270,7 @@ describe('definePrompt - dotprompt', () => {
       assert.strictEqual(response.text, 'Echo: hi Genkit; config: {}');
     });
 
-    it('calls dotprompt with history', async () => {
+    it('calls dotprompt with history and places it at {{ history }}', async () => {
       const hi = ai.definePrompt(
         {
           name: 'hi',
@@ -247,7 +281,7 @@ describe('definePrompt - dotprompt', () => {
             }),
           },
         },
-        '{{ history}} hi {{ name }}'
+        '{{ role "system"}} talk like a pirate {{ history}} hi {{ name }}'
       );
 
       const response = await hi(
@@ -260,6 +294,10 @@ describe('definePrompt - dotprompt', () => {
         }
       );
       assert.deepStrictEqual(response.messages, [
+        {
+          role: 'system',
+          content: [{ text: ' talk like a pirate ' }],
+        },
         {
           role: 'user',
           content: [{ text: 'hi' }],
@@ -277,7 +315,99 @@ describe('definePrompt - dotprompt', () => {
         {
           role: 'model',
           content: [
-            { text: 'Echo: hi,bye, hi Genkit' },
+            { text: 'Echo: system:  talk like a pirate ,hi,bye, hi Genkit' },
+            { text: '; config: {}' },
+          ],
+        },
+      ]);
+    });
+
+    it('calls dotprompt with history and places it before user message', async () => {
+      const hi = ai.definePrompt(
+        {
+          name: 'hi',
+          model: 'echoModel',
+          input: {
+            schema: z.object({
+              name: z.string(),
+            }),
+          },
+        },
+        'hi {{ name }}'
+      );
+
+      const response = await hi(
+        { name: 'Genkit' },
+        {
+          messages: [
+            { role: 'user', content: [{ text: 'hi' }] },
+            { role: 'model', content: [{ text: 'bye' }] },
+          ],
+        }
+      );
+      assert.deepStrictEqual(response.messages, [
+        {
+          role: 'user',
+          content: [{ text: 'hi' }],
+        },
+        {
+          role: 'model',
+          content: [{ text: 'bye' }],
+        },
+        {
+          role: 'user',
+          content: [{ text: 'hi Genkit' }],
+        },
+        {
+          role: 'model',
+          content: [
+            { text: 'Echo: hi,bye,hi Genkit' },
+            { text: '; config: {}' },
+          ],
+        },
+      ]);
+    });
+
+    it('streams dotprompt with history and places it before user message', async () => {
+      const hi = ai.definePrompt(
+        {
+          name: 'hi',
+          model: 'echoModel',
+          input: {
+            schema: z.object({
+              name: z.string(),
+            }),
+          },
+        },
+        'hi {{ name }}'
+      );
+
+      const response = await hi.stream(
+        { name: 'Genkit' },
+        {
+          messages: [
+            { role: 'user', content: [{ text: 'hi' }] },
+            { role: 'model', content: [{ text: 'bye' }] },
+          ],
+        }
+      );
+      assert.deepStrictEqual((await response.response).messages, [
+        {
+          role: 'user',
+          content: [{ text: 'hi' }],
+        },
+        {
+          role: 'model',
+          content: [{ text: 'bye' }],
+        },
+        {
+          role: 'user',
+          content: [{ text: 'hi Genkit' }],
+        },
+        {
+          role: 'model',
+          content: [
+            { text: 'Echo: hi,bye,hi Genkit' },
             { text: '; config: {}' },
           ],
         },
@@ -681,6 +811,7 @@ describe('definePrompt', () => {
 
 describe('prompt', () => {
   let ai: Genkit;
+  let pm: ProgrammableModel;
 
   beforeEach(() => {
     ai = genkit({
@@ -688,6 +819,7 @@ describe('prompt', () => {
       promptDir: './tests/prompts',
     });
     defineEchoModel(ai);
+    pm = defineProgrammableModel(ai);
   });
 
   it('loads from from the folder', async () => {
@@ -698,6 +830,17 @@ describe('prompt', () => {
     assert.strictEqual(
       text,
       'Echo: Hello from the prompt file; config: {"temperature":11}'
+    );
+  });
+
+  it('loads a varaint from from the folder', async () => {
+    const testPrompt = ai.prompt('test', { variant: 'variant' }); // see tests/prompts folder
+
+    const { text } = await testPrompt();
+
+    assert.strictEqual(
+      text,
+      'Echo: Hello from a variant of the hello prompt\n; config: {"temperature":13}'
     );
   });
 
@@ -725,6 +868,49 @@ describe('prompt', () => {
     const { text } = await testPrompt({ name: 'banana' });
 
     assert.strictEqual(text, 'Echo: hi banana; config: {"temperature":11}');
+  });
+
+  it('passes in output options to the model', async () => {
+    const hi = ai.definePrompt(
+      {
+        name: 'hi',
+        model: 'programmableModel',
+        input: {
+          schema: z.object({
+            name: z.string(),
+          }),
+        },
+        output: {
+          schema: z.object({
+            message: z.string(),
+          }),
+          format: 'json',
+        },
+      },
+      async (input) => {
+        return {
+          messages: [{ role: 'user', content: [{ text: `hi ${input.name}` }] }],
+          config: {
+            temperature: 11,
+          },
+        };
+      }
+    );
+
+    pm.handleResponse = async (req, sc) => {
+      return {
+        message: {
+          role: 'model',
+          content: [{ text: '```json\n{"message": "hello"}\n```' }],
+        },
+      };
+    };
+
+    const { output } = await hi({
+      name: 'Pavel',
+    });
+
+    assert.deepStrictEqual(output, { message: 'hello' });
   });
 });
 

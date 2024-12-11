@@ -25,7 +25,6 @@ import {
   EvalKeyAugments,
   EvalRun,
   EvalRunKey,
-  FlowActionInputSchema,
   GenerateRequest,
   GenerateRequestSchema,
   GenerateResponseSchema,
@@ -77,6 +76,10 @@ export async function runNewEvaluation(
   );
   const datasetVersion = targetDatasetMetadata?.version;
 
+  if (dataset.length === 0) {
+    throw new Error(`Dataset ${datasetId} is empty`);
+  }
+
   logger.info('Running inference...');
   const evalDataset = await runInference({
     manager,
@@ -94,7 +97,12 @@ export async function runNewEvaluation(
     manager,
     evaluatorActions,
     evalDataset,
-    augments: { actionRef, datasetId, datasetVersion },
+    augments: {
+      actionRef,
+      datasetId,
+      datasetVersion,
+      actionConfig: request.options?.actionConfig,
+    },
   });
   return evalRun.key;
 }
@@ -130,6 +138,9 @@ export async function runEvaluation(params: {
   augments?: EvalKeyAugments;
 }): Promise<EvalRun> {
   const { manager, evaluatorActions, evalDataset, augments } = params;
+  if (evalDataset.length === 0) {
+    throw new Error('Cannot run evaluation, no data provided');
+  }
   const evalRunId = randomUUID();
   const scores: Record<string, any> = {};
   logger.info('Running evaluation...');
@@ -215,6 +226,9 @@ async function bulkRunAction(params: {
         reference: c.reference,
         testCaseId: c.testCaseId ?? generateTestCaseId(),
       }));
+  if (testCases.length === 0) {
+    throw new Error('Cannot run inference, no data provided');
+  }
 
   let states: InferenceRunState[] = [];
   let evalInputs: EvalInput[] = [];
@@ -257,15 +271,10 @@ async function runFlowAction(params: {
   const { manager, actionRef, testCase, auth } = { ...params };
   let state: InferenceRunState;
   try {
-    const flowInput = FlowActionInputSchema.parse({
-      start: {
-        input: testCase.input,
-      },
-      auth: auth ? JSON.parse(auth) : undefined,
-    });
     const runActionResponse = await manager.runAction({
       key: actionRef,
-      input: flowInput,
+      input: testCase.input,
+      context: auth ? JSON.parse(auth) : undefined,
     });
     state = {
       ...testCase,

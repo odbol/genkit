@@ -7,20 +7,19 @@
 # pnpm test:all
 # Run from root: scripts/release_main.sh
 
-pnpm login --registry https://wombat-dressing-room.appspot.com
-
+# pnpm login --registry https://wombat-dressing-room.appspot.com
 
 CURRENT=`pwd`
-
-cd genkit-tools/cli
-pnpm publish --registry https://wombat-dressing-room.appspot.com
-cd $CURRENT
 
 cd genkit-tools/common
 pnpm publish --registry https://wombat-dressing-room.appspot.com
 cd $CURRENT
 
 cd genkit-tools/telemetry-server
+pnpm publish --registry https://wombat-dressing-room.appspot.com
+cd $CURRENT
+
+cd genkit-tools/cli
 pnpm publish --registry https://wombat-dressing-room.appspot.com
 cd $CURRENT
 
@@ -81,5 +80,9 @@ pnpm publish --registry https://wombat-dressing-room.appspot.com
 cd $CURRENT
 
 cd  js/plugins/checks
+pnpm publish --registry https://wombat-dressing-room.appspot.com
+cd $CURRENT
+
+cd  js/plugins/mcp
 pnpm publish --registry https://wombat-dressing-room.appspot.com
 cd $CURRENT

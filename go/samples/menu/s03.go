@@ -71,14 +71,12 @@ func setup03(ctx context.Context, model ai.Model) error {
 		    {{this.description}}
 		  {{~/each}}
 		  Do you have any questions about the menu?`,
-		dotprompt.Config{
-			Model:        model,
-			InputSchema:  dataMenuQuestionInputSchema,
-			OutputFormat: ai.OutputFormatText,
-			GenerationConfig: &ai.GenerationCommonConfig{
-				Temperature: 0.3,
-			},
-		},
+		dotprompt.WithDefaultModel(model),
+		dotprompt.WithInputType(dataMenuQuestionInput{}),
+		dotprompt.WithOutputFormat(ai.OutputFormatText),
+		dotprompt.WithDefaultConfig(&ai.GenerationCommonConfig{
+			Temperature: 0.3,
+		}),
 	)
 	if err != nil {
 		return err
@@ -117,7 +115,7 @@ func setup03(ctx context.Context, model ai.Model) error {
 				return nil, err
 			}
 
-			messages = append(messages, resp.Candidates[0].Message)
+			messages = append(messages, resp.Message)
 			storedHistory.Store(input.SessionID, messages)
 
 			out := &chatSessionOutput{
