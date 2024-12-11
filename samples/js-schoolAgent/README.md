@@ -26,6 +26,8 @@ The main RoutingAgent cannot directly access these specialized tools - it can on
 
 For example, when the RoutingAgent sees a grade-related query, it needs to know from the GradesAgent's description that it can handle grade lookups, even though it can't directly see the `getRecentGrades` tool.
 
+Specialized agents also has access to the RoutingAgent as a tool, so it can hop back to the main routing agent if the user has a different inquiry.
+
 This architectural pattern:
 
 - Maintains clear separation of concerns
